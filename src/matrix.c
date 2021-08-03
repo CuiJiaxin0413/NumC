@@ -54,6 +54,25 @@ void rand_matrix(matrix *result, unsigned int seed, double low, double high) {
  */
 int allocate_matrix(matrix **mat, int rows, int cols) {
     /* TODO: YOUR CODE HERE */
+    if (rows < 0 || cols < 0) {
+        return -1;
+    }
+    *mat = malloc(sizeof(matrix));
+    if (*mat == NULL) {
+        return -2;
+    }
+    (*mat)->rows = rows;
+    (*mat)->cols = cols;
+    (*mat)->parent = NULL;
+    (*mat)->ref_cnt = 1;
+    (*mat)->data = malloc(rows*cols*sizeof(double));
+    if ((*mat)->data == NULL) {
+        return -2;
+    }
+    // initialize all entries to be zeros
+    for (int i = 0; i < rows*cols; i++)
+        (*mat)->data[i] = 0;
+    return 0;
 }
 
 /*
@@ -67,6 +86,20 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
  */
 int allocate_matrix_ref(matrix **mat, matrix *from, int offset, int rows, int cols) {
     /* TODO: YOUR CODE HERE */
+    if (rows < 0 || cols < 0) {
+        return -1;
+    }
+    *mat = malloc(sizeof(matrix));
+    if (*mat == NULL) {
+        return -2;
+    }
+    (*mat)->rows = rows;
+    (*mat)->cols = cols;
+    (*mat)->parent = from;
+    (*mat)->ref_cnt = 1;
+    (*mat)->data = from->data + offset;
+    from->ref_cnt += 1;  // ???
+    return 0;
 }
 
 /*
@@ -76,6 +109,25 @@ int allocate_matrix_ref(matrix **mat, matrix *from, int offset, int rows, int co
  */
 void deallocate_matrix(matrix *mat) {
     /* TODO: YOUR CODE HERE */
+    // if `mat` is not a slice and has no existing slices
+    if (mat->parent == NULL && mat->ref_cnt == 1) {
+        free(mat->data);
+        free(mat);
+        return;
+    }
+    // mat is a slice, and its parent has more ref, just free the slice itself  
+    if (mat->parent->ref_cnt > 1) {
+        free(mat->data);
+        free(mat);
+        return;
+    }
+    // the last existing slice
+    if (mat->parent->ref_cnt == 1) {
+        free(mat->parent->data);
+        free(mat->parent);
+        free(mat);
+        return;
+    }
 }
 
 /*
@@ -83,6 +135,7 @@ void deallocate_matrix(matrix *mat) {
  * You may assume `row` and `col` are valid.
  */
 double get(matrix *mat, int row, int col) {
+    return mat->data[row * col];
     /* TODO: YOUR CODE HERE */
 }
 
@@ -92,12 +145,21 @@ double get(matrix *mat, int row, int col) {
  */
 void set(matrix *mat, int row, int col, double val) {
     /* TODO: YOUR CODE HERE */
+    mat->data[row * col] = val;
 }
 
 /*
  * Sets all entries in mat to val
  */
 void fill_matrix(matrix *mat, double val) {
+    int elements_num = mat->cols * mat->rows;
+    for (int i = 0; i < elements_num / 4 * 4; i += 4) {
+        __m256d set_val = _mm256_set1_pd(val);
+        _mm256_storeu_pd(mat->data + i, set_val);
+    }
+    for (int i = elements_num / 4 * 4; i < elements_num; i++) {
+        mat->data[i] = val;
+    }
     /* TODO: YOUR CODE HERE */
 }
 
@@ -106,6 +168,21 @@ void fill_matrix(matrix *mat, double val) {
  * Return 0 upon success and a nonzero value upon failure.
  */
 int add_matrix(matrix *result, matrix *mat1, matrix *mat2) {
+    if (mat1->rows != mat2->rows || mat1->cols != mat2->cols) {
+        return 1;
+    }
+    __m256d tmp;
+    int elements_num = mat1->rows * mat1->cols;
+    for (int i = 0; i < elements_num / 4 * 4; i += 4) {
+        __m256d load_mat1 = _mm256_loadu_pd(mat1->data + i);
+        __m256d load_mat2 = _mm256_loadu_pd(mat2->data + i);
+        tmp = _mm256_add_pd(load_mat1, load_mat2);
+        _mm256_storeu_pd(result->data + i, tmp);
+    }
+    for (int i = elements_num / 4 * 4; i < elements_num; i++) {
+        result->data[i] = mat1->data[i] + mat2->data[i];
+    }
+    return 0;
     /* TODO: YOUR CODE HERE */
 }
 
@@ -116,6 +193,20 @@ int add_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  */
 int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     /* TODO: YOUR CODE HERE */
+    if (mat1->rows != mat2->rows || mat1->cols != mat2->cols) {
+        return 1;
+    }
+    __m256d tmp;
+    int elements_num = mat1->rows * mat1->cols;
+    for (int i = 0; i < elements_num / 4 * 4; i += 4) {
+        __m256d load_mat1 = _mm256_loadu_pd(mat1->data + i);
+        __m256d load_mat2 = _mm256_loadu_pd(mat2->data + i);
+        tmp = _mm256_sub_pd(load_mat1, load_mat2);
+        _mm256_storeu_pd(result->data + i, tmp);
+    }
+    for (int i = elements_num / 4 * 4; i < elements_num; i++) {
+        result->data[i] = mat1->data[i] - mat2->data[i];
+    }
     return 0;
 }
 
@@ -126,6 +217,24 @@ int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  */
 int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     /* TODO: YOUR CODE HERE */
+    int rows1 = mat1->rows;
+    int cols1 = mat1->cols;
+    int rows2 = mat2->rows;
+    int cols2 = mat2->cols;
+    if (rows1 != cols2 || rows1 < 0 || rows2 < 0 || cols1 < 0 || cols2 < 0) {
+        return 1;
+    }
+    
+    for (int i = 0; i < rows1; i++) {
+        for (int j = 0; j < cols2; j++) {
+            result->data[i*cols1+j] = 0;
+            for (int k = 0; k < cols1; k++) {
+                // result[i][j]         data1[i][k]           data2[k][j]
+                result->data[i*cols1+j] += mat1->data[i*cols1+k] * mat2->data[k*cols2+j];
+            }
+        }
+    }
+    return 0;
 }
 
 /*
@@ -134,6 +243,18 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  * Remember that pow is defined with matrix multiplication, not element-wise multiplication.
  */
 int pow_matrix(matrix *result, matrix *mat, int pow) {
+    if (pow < 1) {
+        return 1;
+    }
+    if (pow == 1) {
+        result = mat;
+        return 0;
+    }
+    mul_matrix(result, mat, mat);
+    for (int i = 0; i < pow - 1; i++) {
+        mul_matrix(result, result, mat);
+    }
+    return 0;
     /* TODO: YOUR CODE HERE */
 }
 
@@ -143,7 +264,21 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
  * Return 0 upon success and a nonzero value upon failure.
  */
 int neg_matrix(matrix *result, matrix *mat) {
-    /* TODO: YOUR CODE HERE */
+    /* TODO: YOUR CODE HERE */ 
+    __m256d zeros = _mm256_set1_pd(0);
+    int elements_num = mat->rows * mat->cols;
+
+    __m256d load_mat;
+    __m256d tmp;
+
+    for (int i = 0; i < elements_num / 4 * 4; i += 4) {
+        load_mat = _mm256_loadu_pd(mat->data + i);
+        tmp = _mm256_sub_pd(zeros, load_mat);
+        _mm256_storeu_pd(result->data + i, tmp);
+    }
+    for (int i = elements_num / 4 * 4; i < elements_num; i++) {
+        result->data[i] = 0 - mat->data[i];
+    }
     return 0;
 }
 
@@ -153,4 +288,24 @@ int neg_matrix(matrix *result, matrix *mat) {
  */
 int abs_matrix(matrix *result, matrix *mat) {
     /* TODO: YOUR CODE HERE */
+    __m256d zeros = _mm256_set1_pd(0);
+    int elements_num = mat->rows * mat->cols;
+
+    __m256d load_mat;
+    __m256d tmp;
+
+    for (int i = 0; i < elements_num / 4 * 4; i += 4) {
+        load_mat = _mm256_loadu_pd(mat->data + i);
+        tmp = _mm256_sub_pd(zeros, load_mat);
+        tmp = _mm256_max_pd(load_mat, tmp);
+        _mm256_storeu_pd(result->data + i, tmp);
+    }
+    for (int i = elements_num / 4 * 4; i < elements_num; i++) {
+        if (mat->data[i] < 0) {
+            result->data[i] = 0 - mat->data[i];
+        } else {
+            result->data[i] = mat->data[i];
+        }
+    }
+    return 0;
 }
