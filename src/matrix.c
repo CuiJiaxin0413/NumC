@@ -54,7 +54,7 @@ void rand_matrix(matrix *result, unsigned int seed, double low, double high) {
  */
 int allocate_matrix(matrix **mat, int rows, int cols) {
     /* TODO: YOUR CODE HERE */
-    if (rows < 0 || cols < 0) {
+    if (rows <= 0 || cols <= 0) {
         return -1;
     }
     *mat = malloc(sizeof(matrix));
@@ -86,7 +86,7 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
  */
 int allocate_matrix_ref(matrix **mat, matrix *from, int offset, int rows, int cols) {
     /* TODO: YOUR CODE HERE */
-    if (rows < 0 || cols < 0) {
+    if (rows <= 0 || cols <= 0) {
         return -1;
     }
     *mat = malloc(sizeof(matrix));
@@ -110,14 +110,23 @@ int allocate_matrix_ref(matrix **mat, matrix *from, int offset, int rows, int co
 void deallocate_matrix(matrix *mat) {
     /* TODO: YOUR CODE HERE */
     // if `mat` is not a slice and has no existing slices
+    if (mat == NULL) {
+        return;
+    }
     if (mat->parent == NULL && mat->ref_cnt == 1) {
         free(mat->data);
         free(mat);
         return;
     }
+    // deallocate a matrix, but has slices
+    if (mat->parent == NULL && mat->ref_cnt > 1) {
+        mat->ref_cnt -= 1;
+        return;
+    }
     // mat is a slice, and its parent has more ref, just free the slice itself  
     if (mat->parent->ref_cnt > 1) {
-        free(mat->data);
+        //free(mat->data);
+        mat->parent->ref_cnt -= 1;
         free(mat);
         return;
     }
@@ -135,7 +144,8 @@ void deallocate_matrix(matrix *mat) {
  * You may assume `row` and `col` are valid.
  */
 double get(matrix *mat, int row, int col) {
-    return mat->data[row * col];
+    int col_num = mat->cols;
+    return mat->data[row*col_num + col];
     /* TODO: YOUR CODE HERE */
 }
 
@@ -145,7 +155,8 @@ double get(matrix *mat, int row, int col) {
  */
 void set(matrix *mat, int row, int col, double val) {
     /* TODO: YOUR CODE HERE */
-    mat->data[row * col] = val;
+    int col_num = mat->cols;
+    mat->data[row*col_num + col] = val;
 }
 
 /*
@@ -224,16 +235,22 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     if (rows1 != cols2 || rows1 < 0 || rows2 < 0 || cols1 < 0 || cols2 < 0) {
         return 1;
     }
-    
+    matrix *temp_result;
+    allocate_matrix(&temp_result, rows1, cols2);
     for (int i = 0; i < rows1; i++) {
         for (int j = 0; j < cols2; j++) {
-            result->data[i*cols1+j] = 0;
+            int sum_ij = 0;
             for (int k = 0; k < cols1; k++) {
                 // result[i][j]         data1[i][k]           data2[k][j]
-                result->data[i*cols1+j] += mat1->data[i*cols1+k] * mat2->data[k*cols2+j];
+                sum_ij += mat1->data[i*cols1+k] * mat2->data[k*cols2+j];
+                //printf("data1[i][k]:%f * data2[k][j]:%f, sum=%d\n", get(mat1, i, k), get(mat2, k, j), sum_ij);
             }
+            temp_result->data[i*cols1+j] = sum_ij;
         }
     }
+    free(result->data);
+    result->data = temp_result->data;
+    free(temp_result);
     return 0;
 }
 
@@ -247,13 +264,15 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
         return 1;
     }
     if (pow == 1) {
-        result = mat;
+        result->data = mat->data;
         return 0;
     }
     mul_matrix(result, mat, mat);
-    for (int i = 0; i < pow - 1; i++) {
+    for (int i = 1; i < pow - 1; i++) {
         mul_matrix(result, result, mat);
     }
+
+
     return 0;
     /* TODO: YOUR CODE HERE */
 }
