@@ -232,7 +232,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     int cols1 = mat1->cols;
     int rows2 = mat2->rows;
     int cols2 = mat2->cols;
-    if (rows1 != cols2 || rows1 < 0 || rows2 < 0 || cols1 < 0 || cols2 < 0) {
+    if (rows1 != cols2 || rows1 <= 0 || rows2 <= 0 || cols1 <= 0 || cols2 <= 0) {
         return 1;
     }
     matrix *temp_result;
@@ -260,6 +260,10 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  * Remember that pow is defined with matrix multiplication, not element-wise multiplication.
  */
 int pow_matrix(matrix *result, matrix *mat, int pow) {
+    if (mat->rows != mat->cols) {
+        return 2;
+    }
+    //TO DO: Can pow be 0?
     if (pow < 1) {
         return 1;
     }

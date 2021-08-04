@@ -312,6 +312,43 @@ static PyMappingMethods Matrix61c_mapping = {
  */
 static PyObject *Matrix61c_add(Matrix61c* self, PyObject* args) {
     /* TODO: YOUR CODE HERE */
+    // TypeError if either a or b is not of type numc.Matrix.
+    // ValueError if a and b do not have the same dimensions.
+
+
+    // TODO: check self?
+
+    matrix *new_mat;
+    int alloc_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
+    if (alloc_failed != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate");
+        return NULL;
+    }
+    Matrix61c* return_mat = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+    return_mat->mat = new_mat;
+    return_mat->shape = PyTuple_Pack(2, PyLong_FromLong(new_mat->rows), PyLong_FromLong(new_mat->cols));
+
+    PyObject *mat_b= NULL;
+    if (PyArg_UnpackTuple(args, "args", 1, 1, &mat_b)) {
+        if (!PyObject_TypeCheck(mat_b, &Matrix61cType)) {
+            PyErr_SetString(PyExc_TypeError, "Argument must of type numc.Matrix!");
+            return NULL;
+        }
+
+        Matrix61c* mat61c_b = (Matrix61c*)b;
+        // add?
+        int ret = add_matrix(new_mat, self->mat, mat61c_b->mat);
+        if (ret != 0) {
+            PyErr_SetString(PyExc_ValueError, "Dimensions do not match!");
+            return NULL;
+        }
+
+        return return_mat;
+
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+        return NULL;
+    }
 }
 
 /*
@@ -320,7 +357,7 @@ static PyObject *Matrix61c_add(Matrix61c* self, PyObject* args) {
  */
 static PyObject *Matrix61c_sub(Matrix61c* self, PyObject* args) {
     /* TODO: YOUR CODE HERE */
-    return 0;
+    return Py_NotImplemented;
 }
 
 /*
@@ -329,6 +366,39 @@ static PyObject *Matrix61c_sub(Matrix61c* self, PyObject* args) {
  */
 static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
     /* TODO: YOUR CODE HERE */
+    PyObject *mat_b= NULL;
+    if (PyArg_UnpackTuple(args, "args", 1, 1, &mat_b)) {
+        if (!PyObject_TypeCheck(mat_b, &Matrix61cType)) {
+            PyErr_SetString(PyExc_TypeError, "Argument must of type numc.Matrix!");
+            return NULL;
+        }
+
+        Matrix61c* mat61c_b = (Matrix61c*)b;
+        int cols_b = mat61c_b->mat->cols;
+
+        matrix *new_mat;
+        int alloc_failed = allocate_matrix(&new_mat, self->mat->rows, cols_b);
+        if (alloc_failed != 0) {
+            PyErr_SetString(PyExc_RuntimeError, "Failed to allocate");
+            return NULL;
+        }
+        Matrix61c* return_mat = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+        return_mat->mat = new_mat;
+        return_mat->shape = PyTuple_Pack(2, PyLong_FromLong(new_mat->rows), PyLong_FromLong(new_mat->cols));
+
+        // mul
+        int ret = mul_matrix(new_mat, self->mat, mat61c_b->mat);
+        if (ret != 0) {
+            PyErr_SetString(PyExc_ValueError, "Dimensions do not match!");
+            return NULL;
+        }
+
+        return return_mat;
+
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+        return NULL;
+    }
 }
 
 /*
@@ -336,7 +406,7 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
  */
 static PyObject *Matrix61c_neg(Matrix61c* self) {
     /* TODO: YOUR CODE HERE */
-    return 0;
+    return Py_NotImplemented;
 }
 
 /*
@@ -344,6 +414,23 @@ static PyObject *Matrix61c_neg(Matrix61c* self) {
  */
 static PyObject *Matrix61c_abs(Matrix61c *self) {
     /* TODO: YOUR CODE HERE */
+    matrix *new_mat;
+    int alloc_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols, 1);
+    if (alloc_failed != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate");
+        return NULL;
+    }
+    Matrix61c* return_mat = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+    return_mat->mat = new_mat;
+    return_mat->shape = PyTuple_Pack(2, PyLong_FromLong(new_mat->rows), PyLong_FromLong(new_mat->cols));
+
+    
+    int ret = abs_matrix(new_mat, self->mat);
+ 
+
+    return return_mat;
+
+    
 }
 
 /*
@@ -351,6 +438,39 @@ static PyObject *Matrix61c_abs(Matrix61c *self) {
  */
 static PyObject *Matrix61c_pow(Matrix61c *self, PyObject *pow, PyObject *optional) {
     /* TODO: YOUR CODE HERE */
+    if (!PyLong_Check(pow)) {
+        PyErr_SetString(PyExc_TypeError, "Pow must of type int!");
+        return NULL;
+    }
+
+    matrix *new_mat;
+    int alloc_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
+    if (alloc_failed != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate");
+        return NULL;
+    }
+    Matrix61c* return_mat = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+    return_mat->mat = new_mat;
+    return_mat->shape = PyTuple_Pack(2, PyLong_FromLong(new_mat->rows), PyLong_FromLong(new_mat->cols));
+
+    //
+    // TypeError if a is not of type numc.Matrix or pow is not an integer.
+    // ValueError if a is not a square matrix or if pow is negative.
+
+    int int_pow = PyLong_AsLong(pow);
+    int ret = pow_matrix(new_mat, self->mat, int_pow);
+    if (ret == 1) {
+        PyErr_SetString(PyExc_ValueError, "pow is negative!");
+        return NULL;
+    } else if (ret == 2) {
+        PyErr_SetString(PyExc_ValueError, "matrix is not a square matrix!");
+        return NULL;
+    }
+
+    return return_mat;
+
+    
+
 }
 
 /*
@@ -359,6 +479,12 @@ static PyObject *Matrix61c_pow(Matrix61c *self, PyObject *pow, PyObject *optiona
  */
 static PyNumberMethods Matrix61c_as_number = {
     /* TODO: YOUR CODE HERE */
+
+    (binaryfunc) Matrix61c_add,
+    (binaryfunc) Matrix61c_multiply,
+    (unaryfunc) Matrix61c_abs,
+    (ternaryfunc) Matrix61c_pow,
+
 };
 
 
