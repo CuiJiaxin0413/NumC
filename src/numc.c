@@ -335,7 +335,7 @@ static PyObject *Matrix61c_add(Matrix61c* self, PyObject* args) {
             return NULL;
         }
 
-        Matrix61c* mat61c_b = (Matrix61c*)b;
+        Matrix61c* mat61c_b = (Matrix61c*) mat_b;
         // add?
         int ret = add_matrix(new_mat, self->mat, mat61c_b->mat);
         if (ret != 0) {
@@ -373,7 +373,7 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
             return NULL;
         }
 
-        Matrix61c* mat61c_b = (Matrix61c*)b;
+        Matrix61c* mat61c_b = (Matrix61c*) mat_b;
         int cols_b = mat61c_b->mat->cols;
 
         matrix *new_mat;
@@ -393,7 +393,7 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
             return NULL;
         }
 
-        return return_mat;
+        return (PyObject*) return_mat;
 
     } else {
         PyErr_SetString(PyExc_TypeError, "Invalid arguments");
@@ -415,7 +415,7 @@ static PyObject *Matrix61c_neg(Matrix61c* self) {
 static PyObject *Matrix61c_abs(Matrix61c *self) {
     /* TODO: YOUR CODE HERE */
     matrix *new_mat;
-    int alloc_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols, 1);
+    int alloc_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
     if (alloc_failed != 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to allocate");
         return NULL;
@@ -425,10 +425,10 @@ static PyObject *Matrix61c_abs(Matrix61c *self) {
     return_mat->shape = PyTuple_Pack(2, PyLong_FromLong(new_mat->rows), PyLong_FromLong(new_mat->cols));
 
     
-    int ret = abs_matrix(new_mat, self->mat);
+    abs_matrix(new_mat, self->mat);
  
 
-    return (PyObject*)return_mat;
+    return (PyObject*) return_mat;
 
     
 }
@@ -482,8 +482,8 @@ static PyNumberMethods Matrix61c_as_number = {
 
     .nb_add = (binaryfunc) Matrix61c_add,
     .nb_multiply = (binaryfunc) Matrix61c_multiply,
-    .nb_absolute = (unaryfunc) Matrix61c_abs,
     .nb_power = (ternaryfunc) Matrix61c_pow,
+    .nb_absolute = (unaryfunc) Matrix61c_abs,
 
 };
 
@@ -501,24 +501,22 @@ static PyObject *Matrix61c_set_value(Matrix61c *self, PyObject* args) {
     if (PyArg_UnpackTuple(args, "args", 1, 3, &i, &j, &val)) {
         // arguments are (rows, cols, val)
         if (i && j && val && PyLong_Check(i) && PyLong_Check(j) && (PyLong_Check(val) || PyFloat_Check(val))) {
-            if (i >= self->mat->rows || j >= self->mat->cols || i < 0 || j < 0) {
+            if (PyLong_AsLong(i) >= self->mat->rows || PyLong_AsLong(j) >= self->mat->cols || PyLong_AsLong(i) < 0 || PyLong_AsLong(j) < 0) {
                 PyErr_SetString(PyExc_IndexError, "Index out of range");
                 return NULL;
             }
             if (PyLong_Check(val)) {
-                set(self->mat, PyLong_AsLong(i), PyLong_AsLong(j), PyLong_AsLong(val));
-                return NULL;
-            }
-            else {
+                set(self->mat, PyLong_AsLong(i), PyLong_AsLong(j), (double) PyLong_AsLong(val));
+                return Py_BuildValue("");
+            } else {
                 set(self->mat, PyLong_AsLong(i), PyLong_AsLong(j), PyFloat_AsDouble(val));
-                return NULL;
-            }
-        else {
+                return Py_BuildValue("");
+            } 
+        } else {
             PyErr_SetString(PyExc_TypeError, "Invalid arguments");
-            return NULL;
-        }
-    } 
-    else {
+            return NULL;  
+        } 
+    } else {
         // if the number of arguments parsed from args is not 3
         PyErr_SetString(PyExc_TypeError, "Invalid arguments");
         return NULL;
@@ -538,14 +536,14 @@ static PyObject *Matrix61c_get_value(Matrix61c *self, PyObject* args) {
     if (PyArg_UnpackTuple(args, "args", 1, 2, &i, &j)) {
         // arguments are (i, j)
         if (i && j && PyLong_Check(i) && PyLong_Check(j)) {
-            if (i >= self->mat->rows || j >= self->mat->cols || i < 0 || j < 0) {
+            if (PyLong_AsLong(i) >= self->mat->rows || PyLong_AsLong(j) >= self->mat->cols || PyLong_AsLong(i) < 0 || PyLong_AsLong(j) < 0) {
                 PyErr_SetString(PyExc_IndexError, "Index out of range");
                 return NULL;
             }
             else {
-                return (PyObject*)get(self->mat, PyLong_AsLong(i), PyLong_AsLong(j));
+                return PyFloat_FromDouble(get(self->mat, PyLong_AsLong(i), PyLong_AsLong(j)));
             }
-        else { // if either i or j is not an integer.
+        } else { // if either i or j is not an integer.
             PyErr_SetString(PyExc_TypeError, "Invalid arguments");
             return NULL;
         }
@@ -565,8 +563,8 @@ static PyObject *Matrix61c_get_value(Matrix61c *self, PyObject* args) {
  */
 static PyMethodDef Matrix61c_methods[] = {
     /* TODO: YOUR CODE HERE */
-    {"get", (PyCFunction) Matrix61c_get_value, 0, "get a item"},
-    {"set", (PyCFunction) Matrix61c_set_value, 0, "set a item"},
+    {"get", (PyCFunction) Matrix61c_get_value, METH_VARARGS, NULL},
+    {"set", (PyCFunction) Matrix61c_set_value, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
 };
 
