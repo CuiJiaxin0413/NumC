@@ -565,8 +565,9 @@ static PyObject *Matrix61c_get_value(Matrix61c *self, PyObject* args) {
  */
 static PyMethodDef Matrix61c_methods[] = {
     /* TODO: YOUR CODE HERE */
-    {"set", &Matrix61c_set_value, 0, NULL},
-    {"get", &Matrix61c_get_value, 0, NULL}
+    {"get", (PyCFunction) Matrix61c_get_value, 0, "get a item"},
+    {"set", (PyCFunction) Matrix61c_set_value, 0, "set a item"},
+    {NULL, NULL, 0, NULL}
 };
 
 /* INSTANCE ATTRIBUTES*/
