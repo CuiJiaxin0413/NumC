@@ -239,7 +239,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     allocate_matrix(&temp_result, rows1, cols2);
     for (int i = 0; i < rows1; i++) {
         for (int j = 0; j < cols2; j++) {
-            int sum_ij = 0;
+            double sum_ij = 0;
             for (int k = 0; k < cols1; k++) {
                 // result[i][j]         data1[i][k]           data2[k][j]
                 sum_ij += mat1->data[i*cols1+k] * mat2->data[k*cols2+j];
