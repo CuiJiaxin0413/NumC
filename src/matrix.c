@@ -246,6 +246,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     int transposed_col = rows2;
     allocate_matrix(&transposed, transposed_row, transposed_col);
 
+    #pragma omp parallel for
     for (int i = 0; i < rows2; i++) {
         for (int j = 0; j < cols2; j++) {
             transposed->data[j*rows2 + i] = mat2->data[i*cols2 + j];
@@ -257,6 +258,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         return -2;
     }
 
+    #pragma omp parallel for
     for (int i = 0; i < rows1; i++) {
         for (int j = 0; j < transposed_row; j++) {
             __m256d sum = _mm256_set1_pd(0);
@@ -318,6 +320,7 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
         return 1;
     }
     if (pow == 0) {
+        #pragma omp parallel for
         for (int i = 0; i < result->rows; i++) {
             for (int j = 0; j < result->cols; j++) {
                 if (i == j) {
@@ -328,6 +331,7 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
         return 0;
     }
     int mat_size = mat->rows * mat->cols;
+    #pragma omp parallel for
     for (int i = 0; i < mat_size; i++) {
         result->data[i] = mat->data[i];
     }
