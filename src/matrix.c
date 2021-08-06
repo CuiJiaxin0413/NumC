@@ -385,12 +385,14 @@ int abs_matrix(matrix *result, matrix *mat) {
     __m256d load_mat;
     __m256d tmp;
 
+    #pragma omp parallel for
     for (int i = 0; i < elements_num / 4 * 4; i += 4) {
         load_mat = _mm256_loadu_pd(mat->data + i);
         tmp = _mm256_sub_pd(zeros, load_mat);
         tmp = _mm256_max_pd(load_mat, tmp);
         _mm256_storeu_pd(result->data + i, tmp);
     }
+    #pragma omp parallel for
     for (int i = elements_num / 4 * 4; i < elements_num; i++) {
         if (mat->data[i] < 0) {
             result->data[i] = 0 - mat->data[i];
