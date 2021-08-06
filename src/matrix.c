@@ -237,7 +237,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     int cols1 = mat1->cols;
     int rows2 = mat2->rows;
     int cols2 = mat2->cols;
-    if (rows1 != cols2 || rows1 <= 0 || rows2 <= 0 || cols1 <= 0 || cols2 <= 0) {
+    if (cols1 != rows2 || rows1 <= 0 || rows2 <= 0 || cols1 <= 0 || cols2 <= 0) {
         return 1;
     }
 
@@ -254,7 +254,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
 
     double *temp_data = malloc((rows1*cols2)*sizeof(double));
     if (temp_data == NULL) {
-        return 1;
+        return -2;
     }
 
     for (int i = 0; i < rows1; i++) {

@@ -381,8 +381,12 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
 
     // mul
     int ret = mul_matrix(new_mat, self->mat, mat61c_b->mat);
-    if (ret != 0) {
+    if (ret == 1) {
         PyErr_SetString(PyExc_ValueError, "Dimensions do not match!");
+        return NULL;
+    }
+    if (ret == -2) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate");
         return NULL;
     }
 
