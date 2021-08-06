@@ -164,10 +164,12 @@ void set(matrix *mat, int row, int col, double val) {
  */
 void fill_matrix(matrix *mat, double val) {
     int elements_num = mat->cols * mat->rows;
+    #pragma omp parallel for
     for (int i = 0; i < elements_num / 4 * 4; i += 4) {
         __m256d set_val = _mm256_set1_pd(val);
         _mm256_storeu_pd(mat->data + i, set_val);
     }
+    #pragma omp parallel for
     for (int i = elements_num / 4 * 4; i < elements_num; i++) {
         mat->data[i] = val;
     }
@@ -184,12 +186,14 @@ int add_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     }
     __m256d tmp;
     int elements_num = mat1->rows * mat1->cols;
+    #pragma omp parallel for
     for (int i = 0; i < elements_num / 4 * 4; i += 4) {
         __m256d load_mat1 = _mm256_loadu_pd(mat1->data + i);
         __m256d load_mat2 = _mm256_loadu_pd(mat2->data + i);
         tmp = _mm256_add_pd(load_mat1, load_mat2);
         _mm256_storeu_pd(result->data + i, tmp);
     }
+    #pragma omp parallel for
     for (int i = elements_num / 4 * 4; i < elements_num; i++) {
         result->data[i] = mat1->data[i] + mat2->data[i];
     }
@@ -264,8 +268,18 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
         return 2;
     }
     //TO DO: Can pow be 0?
-    if (pow < 1) {
+    if (pow < 0) {
         return 1;
+    }
+    if (pow == 0) {
+        for (int i = 0; i < result->rows; i++) {
+            for (int j = 0; j < result->cols; j++) {
+                if (i == j) {
+                    result->data[i*result->cols+j] = 1;
+                }
+            }
+        }
+        return 0;
     }
     if (pow == 1) {
         result->data = mat->data;
