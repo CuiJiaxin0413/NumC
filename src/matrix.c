@@ -241,15 +241,18 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         return 1;
     }
 
-    matrix *transposed;
     int transposed_row = cols2;
     int transposed_col = rows2;
-    allocate_matrix(&transposed, transposed_row, transposed_col);
+    double *transposed_data = malloc(cols2*rows2*sizeof(double));
+    if (transposed_data == NULL) {
+        return -2;
+    }
+    //allocate_matrix(&transposed, transposed_row, transposed_col);
 
     #pragma omp parallel for
     for (int i = 0; i < rows2; i++) {
         for (int j = 0; j < cols2; j++) {
-            transposed->data[j*rows2 + i] = mat2->data[i*cols2 + j];
+            transposed_data[j*rows2 + i] = mat2->data[i*cols2 + j];
         }
     }
 
@@ -265,12 +268,12 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
             double result_4ij[4] = {0, 0, 0, 0};
             for (int k = 0; k < cols1 / 4 * 4; k += 4) {
                 __m256d load_mat1 = _mm256_loadu_pd(mat1->data + i*cols1+k);
-                __m256d load_transposed = _mm256_loadu_pd(transposed->data + j*transposed_col+k);
+                __m256d load_transposed = _mm256_loadu_pd(transposed_data + j*transposed_col+k);
                 sum = _mm256_fmadd_pd(load_mat1, load_transposed, sum);
             }
             _mm256_storeu_pd(result_4ij, sum);
             for (int k = cols1 / 4 * 4; k < cols1; k++) {
-                result_4ij[0] += mat1->data[i*cols1+k] * transposed->data[j*transposed_col+k];
+                result_4ij[0] += mat1->data[i*cols1+k] * transposed_data[j*transposed_col+k];
             }
             double result_ij = result_4ij[0] + result_4ij[1] + result_4ij[2] + result_4ij[3];
             temp_data[i*cols2+j] = result_ij;
@@ -282,28 +285,77 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     result->data = temp_data;
     free(prev_data);
 
-    deallocate_matrix(transposed);
+    free(transposed_data);
     return 0;
-
-    /*
-    matrix *temp_result;
-    allocate_matrix(&temp_result, rows1, cols2);
-    for (int i = 0; i < rows1; i++) {
-        for (int j = 0; j < cols2; j++) {
-            double sum_ij = 0;
-            for (int k = 0; k < cols1; k++) {
-                // result[i][j]         data1[i][k]           data2[k][j]
-                sum_ij += mat1->data[i*cols1+k] * mat2->data[k*cols2+j];
-                //printf("data1[i][k]:%f * data2[k][j]:%f, sum=%d\n", get(mat1, i, k), get(mat2, k, j), sum_ij);
+    /*if (cols1 < 4) {
+        matrix *temp_result;
+        allocate_matrix(&temp_result, rows1, cols2);
+        for (int i = 0; i < rows1; i++) {
+            for (int j = 0; j < cols2; j++) {
+                double sum_ij = 0;
+                for (int k = 0; k < cols1; k++) {
+                    // result[i][j]         data1[i][k]           data2[k][j]
+                    sum_ij += mat1->data[i*cols1+k] * mat2->data[k*cols2+j];
+                    //printf("data1[i][k]:%f * data2[k][j]:%f, sum=%d\n", get(mat1, i, k), get(mat2, k, j), sum_ij);
+                }
+                temp_result->data[i*cols1+j] = sum_ij;
             }
-            temp_result->data[i*cols1+j] = sum_ij;
         }
+        free(result->data);
+        result->data = temp_result->data;
+        free(temp_result);
+        return 0;
     }
-    free(result->data);
-    result->data = temp_result->data;
-    free(temp_result);
-    return 0;
+    if (cols1 < 16 && cols1 >= 4) {
+        int transposed_row = cols2;
+        int transposed_col = rows2;
+        double *transposed_data = malloc(col2*rows2*sizeof(double));
+        if (transposed_data == NULL) {
+            return -2;
+        }
+        //allocate_matrix(&transposed, transposed_row, transposed_col);
+
+        #pragma omp parallel for
+        for (int i = 0; i < rows2; i++) {
+            for (int j = 0; j < cols2; j++) {
+                transposed_data[j*rows2 + i] = mat2->data[i*cols2 + j];
+            }
+        }
+
+        double *temp_data = malloc((rows1*cols2)*sizeof(double));
+        if (temp_data == NULL) {
+            return -2;
+        }
+
+        #pragma omp parallel for
+        for (int i = 0; i < rows1; i++) {
+            for (int j = 0; j < transposed_row; j++) {
+                __m256d sum = _mm256_set1_pd(0);
+                double result_4ij[4] = {0, 0, 0, 0};
+                for (int k = 0; k < cols1 / 4 * 4; k += 4) {
+                    __m256d load_mat1 = _mm256_loadu_pd(mat1->data + i*cols1+k);
+                    __m256d load_transposed = _mm256_loadu_pd(transposed_data + j*transposed_col+k);
+                    sum = _mm256_fmadd_pd(load_mat1, load_transposed, sum);
+                }
+                _mm256_storeu_pd(result_4ij, sum);
+                for (int k = cols1 / 4 * 4; k < cols1; k++) {
+                    result_4ij[0] += mat1->data[i*cols1+k] * transposed_data[j*transposed_col+k];
+                }
+                double result_ij = result_4ij[0] + result_4ij[1] + result_4ij[2] + result_4ij[3];
+                temp_data[i*cols2+j] = result_ij;
+                //result->data[i*cols2+j] = result_ij;
+            }  
+        }
+
+        double *prev_data = result->data;
+        result->data = temp_data;
+        free(prev_data);
+
+        free(transposed_data);
+        return 0;
+    }
     */
+
 }
 
 /*
@@ -312,6 +364,123 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  * Remember that pow is defined with matrix multiplication, not element-wise multiplication.
  */
 int pow_matrix(matrix *result, matrix *mat, int pow) {
+    int row = mat->rows;
+    int col = mat->cols;
+    if (row != col) {
+        return 2;
+    }
+    if (pow < 0) {
+        return 1;
+    }
+    
+    int i = 0;
+    int j = 0;
+    #pragma omp parallel for
+    for (i = 0; i < row; i++) {
+        for (j = 0; j < col; j++) {
+            if (i == j) {
+                result->data[i*col+j] = 1;
+            } else {
+                result->data[i*col+j] = 0; 
+            }
+        }
+    }
+    
+    if (pow == 0) {
+        return 0;
+    }
+
+
+    int bits[20];
+    int num = 0;
+    for (num = 0; pow != 0; num++) {
+        bits[num] = pow % 2;
+        pow /= 2;
+    }
+
+/*
+    printf("%d\n", bits[0]);
+    printf("%d\n", bits[1]);
+    printf("%d\n", num);
+
+
+    printf("-----------indentity-------------\n");
+    printf("%f\n", get(result, 0, 0));
+    printf("%f\n", get(result, 0, 1));
+    printf("%f\n", get(result, 1, 0));
+    printf("%f\n", get(result, 1, 1));
+    
+*/
+    
+    for (num--; num >= 0; num--) {
+        if (num == 0) {
+            if (bits[num] == 1) {
+                mul_matrix(result, result, mat);
+            }
+        } else {
+            if (bits[num] == 0) {
+                mul_matrix(result, result, result);
+                /*
+                printf("----------lsb, num=%d---------\n", num);
+                printf("%f\n", get(result, 0, 0));
+                printf("%f\n", get(result, 0, 1));
+                printf("%f\n", get(result, 1, 0));
+                printf("%f\n", get(result, 1, 1));
+                */
+
+            } else {
+                mul_matrix(result, result, mat);
+
+                /*
+                printf("----------*mat, , num=%d---------\n", num);
+                printf("%f\n", get(result, 0, 0));
+                printf("%f\n", get(result, 0, 1));
+                printf("%f\n", get(result, 1, 0));
+                printf("%f\n", get(result, 1, 1));
+                */
+                mul_matrix(result, result, result);
+
+                /*
+                printf("----------square, , num=%d---------\n", num);
+                printf("%f\n", get(result, 0, 0));
+                printf("%f\n", get(result, 0, 1));
+                printf("%f\n", get(result, 1, 0));
+                printf("%f\n", get(result, 1, 1));
+                */
+            }
+        }
+        
+    }
+
+
+    printf("-----------after-------------\n");
+    printf("%f\n", get(result, 0, 0));
+    printf("%f\n", get(result, 0, 1));
+    printf("%f\n", get(result, 1, 0));
+    printf("%f\n", get(result, 1, 1));
+
+
+
+    return 0;
+
+    
+    
+    
+    /*
+    pow_matrix(result, mat, pow / 2);
+    
+    if (pow % 2 == 0) {
+        mul_matrix(result, result, result);
+        return 0;
+    } else {
+        mul_matrix(result, result, result);
+        mul_matrix(result, result, mat);
+        return 0;
+    }
+    */
+
+
+    /*
     if (mat->rows != mat->cols) {
         return 2;
     }
@@ -336,21 +505,11 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
         result->data[i] = mat->data[i];
     }
     for (int i = 1; i < pow; i++) {
-        
-        mul_matrix(result, result, mat);
-
-        /*
-        printf("-----%d--------\n", i+1);
-        printf("%f\n", get(result, 0, 0));
-        printf("%f\n", get(result, 0, 1));
-        printf("%f\n", get(result, 1, 0));
-        printf("%f\n", get(result, 1, 1));
-        */
+        mul_matrix(result, result, mat); 
     }
 
-
     return 0;
-    /* TODO: YOUR CODE HERE */
+    */
 }
 
 /*
