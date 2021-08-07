@@ -375,7 +375,7 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
     
     int i = 0;
     int j = 0;
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (i = 0; i < row; i++) {
         for (j = 0; j < col; j++) {
             if (i == j) {
@@ -391,7 +391,7 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
     }
 
 
-    int bits[20];
+    int bits[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     int num = 0;
     for (num = 0; pow != 0; num++) {
         bits[num] = pow % 2;
@@ -438,6 +438,7 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
                 printf("%f\n", get(result, 1, 0));
                 printf("%f\n", get(result, 1, 1));
                 */
+                
                 mul_matrix(result, result, result);
 
                 /*
@@ -452,12 +453,13 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
         
     }
 
-
+    /*
     printf("-----------after-------------\n");
     printf("%f\n", get(result, 0, 0));
     printf("%f\n", get(result, 0, 1));
     printf("%f\n", get(result, 1, 0));
     printf("%f\n", get(result, 1, 1));
+    */
 
 
 
