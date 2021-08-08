@@ -241,6 +241,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         return 1;
     }
 
+    /*
     int transposed_row = cols2;
     int transposed_col = rows2;
     double *transposed_data = malloc(cols2*rows2*sizeof(double));
@@ -287,7 +288,10 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
 
     free(transposed_data);
     return 0;
-    /*if (cols1 < 4) {
+    */
+
+   // if col or row is less then 4, just multiply
+    if (cols1 < 4) {
         matrix *temp_result;
         allocate_matrix(&temp_result, rows1, cols2);
         for (int i = 0; i < rows1; i++) {
@@ -305,11 +309,14 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         result->data = temp_result->data;
         free(temp_result);
         return 0;
+        
     }
+
+    
     if (cols1 < 16 && cols1 >= 4) {
         int transposed_row = cols2;
         int transposed_col = rows2;
-        double *transposed_data = malloc(col2*rows2*sizeof(double));
+        double *transposed_data = malloc(cols2*rows2*sizeof(double));
         if (transposed_data == NULL) {
             return -2;
         }
@@ -354,7 +361,69 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         free(transposed_data);
         return 0;
     }
-    */
+
+    if (cols1 >= 16) {
+        int transposed_row = cols2;
+        int transposed_col = rows2;
+        double *transposed_data = malloc(cols2*rows2*sizeof(double));
+        if (transposed_data == NULL) {
+            return -2;
+        }
+        //allocate_matrix(&transposed, transposed_row, transposed_col);
+
+        #pragma omp parallel for
+        for (int i = 0; i < rows2; i++) {
+            for (int j = 0; j < cols2; j++) {
+                transposed_data[j*rows2 + i] = mat2->data[i*cols2 + j];
+            }
+        }
+
+        double *temp_data = malloc((rows1*cols2)*sizeof(double));
+        if (temp_data == NULL) {
+            return -2;
+        }
+
+        #pragma omp parallel for
+        for (int i = 0; i < rows1; i++) {
+            for (int j = 0; j < transposed_row; j++) {
+                __m256d sum = _mm256_set1_pd(0);
+                double result_4ij[4] = {0, 0, 0, 0};
+                for (int k = 0; k < cols1 / 16 * 16; k += 16) {
+                    __m256d load_mat1 = _mm256_loadu_pd(mat1->data + i*cols1+k);
+                    __m256d load_transposed = _mm256_loadu_pd(transposed_data + j*transposed_col+k);
+                    sum = _mm256_fmadd_pd(load_mat1, load_transposed, sum);
+                    
+                    load_mat1 = _mm256_loadu_pd(mat1->data + i*cols1+k + 4);
+                    load_transposed = _mm256_loadu_pd(transposed_data + j*transposed_col+k + 4);
+                    sum = _mm256_fmadd_pd(load_mat1, load_transposed, sum);
+
+                    load_mat1 = _mm256_loadu_pd(mat1->data + i*cols1+k + 8);
+                    load_transposed = _mm256_loadu_pd(transposed_data + j*transposed_col+k + 8);
+                    sum = _mm256_fmadd_pd(load_mat1, load_transposed, sum);
+
+                    load_mat1 = _mm256_loadu_pd(mat1->data + i*cols1+k + 12);
+                    load_transposed = _mm256_loadu_pd(transposed_data + j*transposed_col+k + 12);
+                    sum = _mm256_fmadd_pd(load_mat1, load_transposed, sum);
+
+                    
+                }
+                _mm256_storeu_pd(result_4ij, sum);
+                for (int k = cols1 / 16 * 16; k < cols1; k++) {
+                    result_4ij[0] += mat1->data[i*cols1+k] * transposed_data[j*transposed_col+k];
+                }
+                double result_ij = result_4ij[0] + result_4ij[1] + result_4ij[2] + result_4ij[3];
+                temp_data[i*cols2+j] = result_ij;
+                //result->data[i*cols2+j] = result_ij;
+            }  
+        }
+
+        double *prev_data = result->data;
+        result->data = temp_data;
+        free(prev_data);
+
+        free(transposed_data);
+        return 0;
+    }
 
 }
 
@@ -375,7 +444,7 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
     
     int i = 0;
     int j = 0;
-    // #pragma omp parallel for
+    #pragma omp parallel for private(i, j)
     for (i = 0; i < row; i++) {
         for (j = 0; j < col; j++) {
             if (i == j) {
