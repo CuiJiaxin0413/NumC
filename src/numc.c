@@ -318,7 +318,7 @@ static PyObject *Matrix61c_add(Matrix61c* self, PyObject* args) {
 
     // TODO: check self?
 
-    if (!PyObject_TypeCheck(args, &Matrix61cType)) {
+    if (!PyObject_TypeCheck(args, &Matrix61cType) || !PyObject_TypeCheck(self, &Matrix61cType)) {
         PyErr_SetString(PyExc_TypeError, "Argument must of type numc.Matrix!");
         return NULL;
     }
@@ -361,7 +361,7 @@ static PyObject *Matrix61c_sub(Matrix61c* self, PyObject* args) {
 static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
     /* TODO: YOUR CODE HERE */
 
-    if (!PyObject_TypeCheck(args, &Matrix61cType)) {
+    if (!PyObject_TypeCheck(args, &Matrix61cType) || !PyObject_TypeCheck(self, &Matrix61cType)) {
         PyErr_SetString(PyExc_TypeError, "Argument must of type numc.Matrix!");
         return NULL;
     }
@@ -407,6 +407,11 @@ static PyObject *Matrix61c_neg(Matrix61c* self) {
  */
 static PyObject *Matrix61c_abs(Matrix61c *self) {
     /* TODO: YOUR CODE HERE */
+    if (!PyObject_TypeCheck(self, &Matrix61cType)) {
+        PyErr_SetString(PyExc_TypeError, "Argument must of type numc.Matrix!");
+        return NULL;
+    }
+
     matrix *new_mat;
     int alloc_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
     if (alloc_failed != 0) {
@@ -431,6 +436,12 @@ static PyObject *Matrix61c_abs(Matrix61c *self) {
  */
 static PyObject *Matrix61c_pow(Matrix61c *self, PyObject *pow, PyObject *optional) {
     /* TODO: YOUR CODE HERE */
+
+    if (!PyObject_TypeCheck(self, &Matrix61cType)) {
+        PyErr_SetString(PyExc_TypeError, "Argument must of type numc.Matrix!");
+        return NULL;
+    }
+
     if (!PyLong_Check(pow)) {
         PyErr_SetString(PyExc_TypeError, "Pow must of type int!");
         return NULL;
