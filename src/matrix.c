@@ -280,20 +280,10 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         }
         //allocate_matrix(&transposed, transposed_row, transposed_col);
 
-        double tmp[4] = {0, 0, 0, 0};
         #pragma omp parallel for
         for (int i = 0; i < rows2; i++) {
-            for (int j = 0; j < cols2 / 4 * 4; j+=4) {
-                // __m256d load_4 = _mm256_loadu_pd(mat2_data + i*cols2 + j);
-                _mm256_storeu_pd(tmp, _mm256_loadu_pd(mat2_data + i*cols2 + j));
+            for (int j = 0; j < cols2; j++) {
                 transposed_data[j*rows2 + i] = mat2_data[i*cols2 + j];
-                transposed_data[(j+1)*rows2 + i] = mat2_data[i*cols2 + j + 1];
-                transposed_data[(j+2)*rows2 + i] = mat2_data[i*cols2 + j + 2];
-                transposed_data[(j+3)*rows2 + i] = mat2_data[i*cols2 + j + 3];
-            }
-
-            for (int j = cols2 / 4 * 4; j < cols2; j++) {
-                transposed_data[j*rows2 + i] = tmp[i*cols2 + j];
             }
         }
 
@@ -335,20 +325,10 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         }
         //allocate_matrix(&transposed, transposed_row, transposed_col);
 
-        double tmp[4] = {0, 0, 0, 0};
         #pragma omp parallel for
         for (int i = 0; i < rows2; i++) {
-            for (int j = 0; j < cols2 / 4 * 4; j+=4) {
-                // __m256d load_4 = _mm256_loadu_pd(mat2_data + i*cols2 + j);
-                _mm256_storeu_pd(tmp, _mm256_loadu_pd(mat2_data + i*cols2 + j));
+            for (int j = 0; j < cols2; j++) {
                 transposed_data[j*rows2 + i] = mat2_data[i*cols2 + j];
-                transposed_data[(j+1)*rows2 + i] = mat2_data[i*cols2 + j + 1];
-                transposed_data[(j+2)*rows2 + i] = mat2_data[i*cols2 + j + 2];
-                transposed_data[(j+3)*rows2 + i] = mat2_data[i*cols2 + j + 3];
-            }
-
-            for (int j = cols2 / 4 * 4; j < cols2; j++) {
-                transposed_data[j*rows2 + i] = tmp[i*cols2 + j];
             }
         }
 
