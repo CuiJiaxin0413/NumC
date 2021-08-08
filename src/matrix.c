@@ -241,6 +241,9 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         return 1;
     }
 
+    double *mat1_data = mat1->data;
+    double *mat2_data = mat2->data;
+
 
    // if col or row is less then 4, just multiply
     if (cols1 < 4) {
@@ -254,7 +257,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
                 double sum_ij = 0;
                 for (int k = 0; k < cols1; k++) {
                     // result[i][j]         data1[i][k]           data2[k][j]
-                    sum_ij += mat1->data[i*cols1+k] * mat2->data[k*cols2+j];
+                    sum_ij += mat1_data[i*cols1+k] * mat2_data[k*cols2+j];
                     //printf("data1[i][k]:%f * data2[k][j]:%f, sum=%d\n", get(mat1, i, k), get(mat2, k, j), sum_ij);
                 }
                 temp_result[i*cols1+j] = sum_ij;
@@ -277,10 +280,20 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         }
         //allocate_matrix(&transposed, transposed_row, transposed_col);
 
+        double tmp[4] = {0, 0, 0, 0};
         #pragma omp parallel for
         for (int i = 0; i < rows2; i++) {
-            for (int j = 0; j < cols2; j++) {
-                transposed_data[j*rows2 + i] = mat2->data[i*cols2 + j];
+            for (int j = 0; j < cols2 / 4 * 4; j+=4) {
+                // __m256d load_4 = _mm256_loadu_pd(mat2_data + i*cols2 + j);
+                _mm256_storeu_pd(tmp, _mm256_loadu_pd(mat2_data + i*cols2 + j));
+                transposed_data[j*rows2 + i] = mat2_data[i*cols2 + j];
+                transposed_data[(j+1)*rows2 + i] = mat2_data[i*cols2 + j + 1];
+                transposed_data[(j+2)*rows2 + i] = mat2_data[i*cols2 + j + 2];
+                transposed_data[(j+3)*rows2 + i] = mat2_data[i*cols2 + j + 3];
+            }
+
+            for (int j = cols2 / 4 * 4; j < cols2; j++) {
+                transposed_data[j*rows2 + i] = tmp[i*cols2 + j];
             }
         }
 
@@ -295,11 +308,11 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
                 __m256d sum = _mm256_set1_pd(0);
                 double result_4ij[4] = {0, 0, 0, 0};
                 for (int k = 0; k < cols1 / 4 * 4; k += 4) {
-                    sum = _mm256_fmadd_pd(_mm256_loadu_pd(mat1->data + i*cols1+k), _mm256_loadu_pd(transposed_data + j*transposed_col+k), sum);
+                    sum = _mm256_fmadd_pd(_mm256_loadu_pd(mat1_data + i*cols1+k), _mm256_loadu_pd(transposed_data + j*transposed_col+k), sum);
                 }
                 _mm256_storeu_pd(result_4ij, sum);
                 for (int k = cols1 / 4 * 4; k < cols1; k++) {
-                    result_4ij[0] += mat1->data[i*cols1+k] * transposed_data[j*transposed_col+k];
+                    result_4ij[0] += mat1_data[i*cols1+k] * transposed_data[j*transposed_col+k];
                 }
                 double result_ij = result_4ij[0] + result_4ij[1] + result_4ij[2] + result_4ij[3];
                 temp_data[i*cols2+j] = result_ij;
@@ -322,10 +335,20 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         }
         //allocate_matrix(&transposed, transposed_row, transposed_col);
 
+        double tmp[4] = {0, 0, 0, 0};
         #pragma omp parallel for
         for (int i = 0; i < rows2; i++) {
-            for (int j = 0; j < cols2; j++) {
-                transposed_data[j*rows2 + i] = mat2->data[i*cols2 + j];
+            for (int j = 0; j < cols2 / 4 * 4; j+=4) {
+                // __m256d load_4 = _mm256_loadu_pd(mat2_data + i*cols2 + j);
+                _mm256_storeu_pd(tmp, _mm256_loadu_pd(mat2_data + i*cols2 + j));
+                transposed_data[j*rows2 + i] = mat2_data[i*cols2 + j];
+                transposed_data[(j+1)*rows2 + i] = mat2_data[i*cols2 + j + 1];
+                transposed_data[(j+2)*rows2 + i] = mat2_data[i*cols2 + j + 2];
+                transposed_data[(j+3)*rows2 + i] = mat2_data[i*cols2 + j + 3];
+            }
+
+            for (int j = cols2 / 4 * 4; j < cols2; j++) {
+                transposed_data[j*rows2 + i] = tmp[i*cols2 + j];
             }
         }
 
@@ -340,25 +363,25 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
                 __m256d sum = _mm256_set1_pd(0);
                 double result_4ij[4] = {0, 0, 0, 0};
                 for (int k = 0; k < cols1 / 16 * 16; k += 16) {
-                    sum = _mm256_fmadd_pd(_mm256_loadu_pd(mat1->data + i*cols1+k), _mm256_loadu_pd(transposed_data + j*transposed_col+k), sum);
+                    sum = _mm256_fmadd_pd(_mm256_loadu_pd(mat1_data + i*cols1+k), _mm256_loadu_pd(transposed_data + j*transposed_col+k), sum);
                     
                     // load_mat1 = _mm256_loadu_pd(mat1->data + i*cols1+k + 4);
                     // load_transposed = _mm256_loadu_pd(transposed_data + j*transposed_col+k + 4);
-                    sum = _mm256_fmadd_pd(_mm256_loadu_pd(mat1->data + i*cols1+k + 4), _mm256_loadu_pd(transposed_data + j*transposed_col+k + 4), sum);
+                    sum = _mm256_fmadd_pd(_mm256_loadu_pd(mat1_data + i*cols1+k + 4), _mm256_loadu_pd(transposed_data + j*transposed_col+k + 4), sum);
 
                     // load_mat1 = _mm256_loadu_pd(mat1->data + i*cols1+k + 8);
                     // load_transposed = _mm256_loadu_pd(transposed_data + j*transposed_col+k + 8);
-                    sum = _mm256_fmadd_pd(_mm256_loadu_pd(mat1->data + i*cols1+k + 8), _mm256_loadu_pd(transposed_data + j*transposed_col+k + 8), sum);
+                    sum = _mm256_fmadd_pd(_mm256_loadu_pd(mat1_data + i*cols1+k + 8), _mm256_loadu_pd(transposed_data + j*transposed_col+k + 8), sum);
 
                     // load_mat1 = _mm256_loadu_pd(mat1->data + i*cols1+k + 12);
                     // load_transposed = _mm256_loadu_pd(transposed_data + j*transposed_col+k + 12);
-                    sum = _mm256_fmadd_pd(_mm256_loadu_pd(mat1->data + i*cols1+k + 12), _mm256_loadu_pd(transposed_data + j*transposed_col+k + 12), sum);
+                    sum = _mm256_fmadd_pd(_mm256_loadu_pd(mat1_data + i*cols1+k + 12), _mm256_loadu_pd(transposed_data + j*transposed_col+k + 12), sum);
 
                     
                 }
                 _mm256_storeu_pd(result_4ij, sum);
                 for (int k = cols1 / 16 * 16; k < cols1; k++) {
-                    result_4ij[0] += mat1->data[i*cols1+k] * transposed_data[j*transposed_col+k];
+                    result_4ij[0] += mat1_data[i*cols1+k] * transposed_data[j*transposed_col+k];
                 }
                 double result_ij = result_4ij[0] + result_4ij[1] + result_4ij[2] + result_4ij[3];
                 temp_data[i*cols2+j] = result_ij;
