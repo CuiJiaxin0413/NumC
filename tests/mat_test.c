@@ -229,8 +229,49 @@ void alloc_ref_success_test(void) {
 }
 
 void dealloc_null_test(void) {
+  /*
   matrix *mat = NULL;
   deallocate_matrix(mat); // Test the null case doesn't crash
+  */
+  matrix *slice1 = NULL;
+  matrix *slice2 = NULL;
+  matrix *from = NULL;
+  CU_ASSERT_EQUAL(allocate_matrix(&from, 3, 3), 0);
+  fill_matrix(from, 1);
+  CU_ASSERT_EQUAL(allocate_matrix_ref(&slice1, from, 0, 1, 3), 0);
+  CU_ASSERT_EQUAL(allocate_matrix_ref(&slice2, from, 3, 1, 3), 0);
+
+  deallocate_matrix(slice1);
+  //CU_ASSERT_PTR_EQUAL(slice1, NULL);
+  //printf("%p\n", slice1);
+  //printf("%p\n", *slice1);
+  //printf("---------\n");
+  CU_ASSERT_EQUAL(from->ref_cnt, 2);
+  CU_ASSERT_NOT_EQUAL(slice2, NULL);
+  CU_ASSERT_NOT_EQUAL(from, NULL);
+
+  deallocate_matrix(from);
+  CU_ASSERT_EQUAL(from->ref_cnt, 1);
+  CU_ASSERT_NOT_EQUAL(slice2, NULL);
+  CU_ASSERT_NOT_EQUAL(slice2->data, NULL);
+  CU_ASSERT_NOT_EQUAL(from->data, NULL);
+  CU_ASSERT_NOT_EQUAL(from, NULL);
+
+  deallocate_matrix(slice2);
+  //printf("%p\n", from);
+  //printf("%p\n", *from);
+  //printf("---------\n");
+  //CU_ASSERT_PTR_NULL(from);
+  //CU_ASSERT_PTR_NULL(slice2);
+
+  //printf("%p\n", slice2);
+  //printf("%p\n", *slice2);
+
+  /*
+  CU_ASSERT_PTR_EQUAL(from, NULL);
+  CU_ASSERT_PTR_EQUAL(slice2, NULL);
+  */
+
 }
 
 void get_test(void) {

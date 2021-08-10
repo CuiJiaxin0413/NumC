@@ -125,14 +125,14 @@ void deallocate_matrix(matrix *mat) {
         return;
     }
     // mat is a slice, and its parent has more ref, just free the slice itself  
-    if (mat->parent->ref_cnt > 1) {
+    if (mat->parent != NULL && mat->parent->ref_cnt > 1) {
         //free(mat->data);
         mat->parent->ref_cnt -= 1;
         free(mat);
         return;
     }
     // the last existing slice
-    if (mat->parent->ref_cnt == 1) {
+    if (mat->parent != NULL && mat->parent->ref_cnt == 1) {
         free(mat->parent->data);
         free(mat->parent);
         free(mat);
@@ -418,20 +418,6 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
         bits[num] = pow % 2;
         pow /= 2;
     }
-
-/*
-    printf("%d\n", bits[0]);
-    printf("%d\n", bits[1]);
-    printf("%d\n", num);
-
-
-    printf("-----------indentity-------------\n");
-    printf("%f\n", get(result, 0, 0));
-    printf("%f\n", get(result, 0, 1));
-    printf("%f\n", get(result, 1, 0));
-    printf("%f\n", get(result, 1, 1));
-    
-*/
     
     for (num--; num >= 0; num--) {
         if (num == 0) {
@@ -441,98 +427,18 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
         } else {
             if (bits[num] == 0) {
                 mul_matrix(result, result, result);
-                /*
-                printf("----------lsb, num=%d---------\n", num);
-                printf("%f\n", get(result, 0, 0));
-                printf("%f\n", get(result, 0, 1));
-                printf("%f\n", get(result, 1, 0));
-                printf("%f\n", get(result, 1, 1));
-                */
 
             } else {
                 mul_matrix(result, result, mat);
-
-                /*
-                printf("----------*mat, , num=%d---------\n", num);
-                printf("%f\n", get(result, 0, 0));
-                printf("%f\n", get(result, 0, 1));
-                printf("%f\n", get(result, 1, 0));
-                printf("%f\n", get(result, 1, 1));
-                */
                 
                 mul_matrix(result, result, result);
 
-                /*
-                printf("----------square, , num=%d---------\n", num);
-                printf("%f\n", get(result, 0, 0));
-                printf("%f\n", get(result, 0, 1));
-                printf("%f\n", get(result, 1, 0));
-                printf("%f\n", get(result, 1, 1));
-                */
             }
         }
         
     }
-
-    /*
-    printf("-----------after-------------\n");
-    printf("%f\n", get(result, 0, 0));
-    printf("%f\n", get(result, 0, 1));
-    printf("%f\n", get(result, 1, 0));
-    printf("%f\n", get(result, 1, 1));
-    */
-
-
-
     return 0;
 
-    
-    
-    
-    /*
-    pow_matrix(result, mat, pow / 2);
-    
-    if (pow % 2 == 0) {
-        mul_matrix(result, result, result);
-        return 0;
-    } else {
-        mul_matrix(result, result, result);
-        mul_matrix(result, result, mat);
-        return 0;
-    }
-    */
-
-
-    /*
-    if (mat->rows != mat->cols) {
-        return 2;
-    }
-    //TO DO: Can pow be 0?
-    if (pow < 0) {
-        return 1;
-    }
-    if (pow == 0) {
-        #pragma omp parallel for
-        for (int i = 0; i < result->rows; i++) {
-            for (int j = 0; j < result->cols; j++) {
-                if (i == j) {
-                    result->data[i*result->cols+j] = 1;
-                }
-            }
-        }
-        return 0;
-    }
-    int mat_size = mat->rows * mat->cols;
-    #pragma omp parallel for
-    for (int i = 0; i < mat_size; i++) {
-        result->data[i] = mat->data[i];
-    }
-    for (int i = 1; i < pow; i++) {
-        mul_matrix(result, result, mat); 
-    }
-
-    return 0;
-    */
 }
 
 /*
